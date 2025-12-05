@@ -7,10 +7,22 @@ const CONDITIONS_URL = "conditions.json";   // 你放的本地文件
 // ====== Fetch current.json with AQI (needed for Cloudy metrics) ======
 export async function fetchRealtimeWeather(q = "auto:ip") {
   const url = `https://api.weatherapi.com/v1/current.json?key=${API_KEY}&q=${encodeURIComponent(q)}&aqi=yes`;
+  console.log("🌐 Fetching weather with AQI:", url);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`current.json HTTP ${res.status}`);
   const data = await res.json();
-  console.log("Full realtime weather data:", data);
+  console.log("📊 Full realtime weather data:", data);
+  console.log("🌬️ Air Quality data:", data.current?.air_quality);
+  
+  // Warn if air_quality is missing despite aqi=yes
+  if (!data.current?.air_quality) {
+    console.warn("⚠️ WARNING: air_quality field is missing from API response!");
+    console.warn("   This might indicate:");
+    console.warn("   1. Your API subscription tier doesn't include AQI data");
+    console.warn("   2. AQI data is not available for this location");
+    console.warn("   3. The API response format has changed");
+  }
+  
   return data;
 }
 
@@ -62,6 +74,7 @@ function pickCategoryMetrics(category, cur) {
     cloud: cur.cloud,
     uv: cur.uv,
     temp_f: cur.temp_f,
+    air_quality: cur.pm2_5,
   };
 
   if (category === "CLOUDY") {

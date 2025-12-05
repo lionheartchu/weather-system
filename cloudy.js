@@ -200,9 +200,10 @@ window.addEventListener('keydown', () => {
 });
 
 const info = { location: "...", condition: "...", realCloud: "0%", realAQI: "0" };
-gui.add(info, 'location').disable();
-gui.add(info, 'condition').disable();
-gui.add(info, 'realCloud').disable();
+gui.add(info, 'location').name('Location').listen().disable();
+gui.add(info, 'condition').name('Condition').listen().disable();
+gui.add(info, 'realCloud').name('Real Cloud').listen().disable();
+gui.add(info, 'realAQI').name('Real AQI').listen().disable();
 gui.add(inputs, 'cloudCover', 0, 1).name('Cloud Cover').listen();
 gui.add(inputs, 'airQuality', 0, 1).name('Air Quality').listen();
 gui.add(inputs, 'windSpeed', 0, 1).name('Wind Speed').listen();
@@ -224,18 +225,56 @@ async function syncWeather() {
         inputs.cloudCover = Math.min(data.current.cloud / 100.0, 1.0);
         inputs.windSpeed = Math.min(data.current.wind_kph / 60.0, 1.0);
         
-        // Air Quality: Map EPA Index (1-6) to 1.0-0.0 (1=Best)
+        // Air Quality: Use PM2.5 as primary source, map to 1.0-0.0 (1=Best)
+        // PM2.5 EPA Standards: 0-12=Good, 12-35=Moderate, 35-55=USG, 55-150=Unhealthy, 150-250=Very Unhealthy, 250+=Hazardous
         let aqiScore = 0.9; // Default Good
-        if (data.current.air_quality && data.current.air_quality['us-epa-index']) {
-            const idx = data.current.air_quality['us-epa-index'];
-            aqiScore = 1.0 - Math.min(Math.max(idx - 1, 0) / 5.0, 1.0);
+        const aq = data.current.air_quality;
+        let aqiDisplay = "N/A";
+
+        if (aq) {
+            // Prioritize PM2.5 over EPA index
+            if (aq.pm2_5 !== undefined && aq.pm2_5 !== null) {
+                const pm = aq.pm2_5;
+                
+                // Smooth continuous mapping based on EPA PM2.5 standards
+                if (pm <= 12) {
+                    // Good: 0-12 µg/m³ -> 1.0-0.95
+                    aqiScore = 1.0 - (pm / 12) * 0.05;
+                } else if (pm <= 35.4) {
+                    // Moderate: 12-35.4 µg/m³ -> 0.95-0.7
+                    const t = (pm - 12) / (35.4 - 12);
+                    aqiScore = 0.95 - t * 0.25;
+                } else if (pm <= 55.4) {
+                    // Unhealthy for Sensitive: 35.5-55.4 µg/m³ -> 0.7-0.5
+                    const t = (pm - 35.4) / (55.4 - 35.4);
+                    aqiScore = 0.7 - t * 0.2;
+                } else if (pm <= 150.4) {
+                    // Unhealthy: 55.5-150.4 µg/m³ -> 0.5-0.2
+                    const t = (pm - 55.4) / (150.4 - 55.4);
+                    aqiScore = 0.5 - t * 0.3;
+                } else if (pm <= 250.4) {
+                    // Very Unhealthy: 150.5-250.4 µg/m³ -> 0.2-0.05
+                    const t = (pm - 150.4) / (250.4 - 150.4);
+                    aqiScore = 0.2 - t * 0.15;
+                } else {
+                    // Hazardous: 250.5+ µg/m³ -> 0.05-0.0
+                    aqiScore = Math.max(0.0, 0.05 - ((pm - 250.4) / 100) * 0.05);
+                }
+                
+                aqiDisplay = `${pm.toFixed(1)} µg/m³`;
+            } else if (aq['us-epa-index']) {
+                // Fallback to EPA index if PM2.5 unavailable
+                const idx = aq['us-epa-index'];
+                aqiScore = 1.0 - Math.min(Math.max(idx - 1, 0) / 5.0, 1.0);
+                aqiDisplay = `${idx} (EPA)`;
+            }
         }
         inputs.airQuality = aqiScore;
 
         info.location = data.location.name;
         info.condition = data.current.condition.text;
         info.realCloud = `${data.current.cloud}%`;
-        info.realAQI = data.current.air_quality ? data.current.air_quality['us-epa-index'] : "N/A";
+        info.realAQI = aqiDisplay;
         
     } catch (e) { console.warn(e); }
 }

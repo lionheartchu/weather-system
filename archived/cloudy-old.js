@@ -2,7 +2,7 @@
 // Cloudy v5 – star field pointillism version
 // ---------------------
 
-import { applyMapping, updateParticle } from './engine.js';
+import { applyMapping, updateParticle } from '../engine.js';
 import * as THREE from 'three';
 
 // ======================================================
