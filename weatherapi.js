@@ -5,7 +5,7 @@ const API_KEY = "bcd80b21e5b74547aa4170545250311";
 const CONDITIONS_URL = "conditions.json";   // 你放的本地文件
 
 // ====== Fetch current.json with AQI (needed for Cloudy metrics) ======
-async function fetchRealtimeWeather(q = "auto:ip") {
+export async function fetchRealtimeWeather(q = "auto:ip") {
   const url = `https://api.weatherapi.com/v1/current.json?key=${API_KEY}&q=${encodeURIComponent(q)}&aqi=yes`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`current.json HTTP ${res.status}`);
@@ -15,13 +15,13 @@ async function fetchRealtimeWeather(q = "auto:ip") {
 }
 
 // ====== Build code -> Category from conditions.json ======
-async function loadConditionsList(url = CONDITIONS_URL) {
+export async function loadConditionsList(url = CONDITIONS_URL) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`conditions.json HTTP ${res.status}`);
   return res.json(); // [{code, day, night, icon}, ...]
 }
 
-function buildCodeCategoryMap(list) {
+export function buildCodeCategoryMap(list) {
   const map = new Map();
   for (const it of list) {
     const code = it.code;
@@ -40,7 +40,7 @@ function buildCodeCategoryMap(list) {
   return map;
 }
 
-async function classifyCategory(data) {
+export async function classifyCategory(data) {
   const list = await loadConditionsList();
   const codeMap = buildCodeCategoryMap(list);
   const code = data?.current?.condition?.code;
